@@ -193,7 +193,7 @@ public class ClientCnxn {
      * operation)
      */
     private volatile boolean closing = false;
-    
+
     /**
      * A set of ZooKeeper hosts this client could connect to.
      */
@@ -671,7 +671,7 @@ public class ClientCnxn {
                                     .substring(chrootPath.length())), rsp.getStat());
                       } else {
                           cb.processResult(rc, clientPath, p.ctx, null, null);
-                      }                   
+                      }
                   } else if (p.response instanceof MultiResponse) {
                 	  MultiCallback cb = (MultiCallback) p.cb;
                 	  MultiResponse rsp = (MultiResponse) p.response;
@@ -787,7 +787,7 @@ public class ClientCnxn {
         public EndOfStreamException(String msg) {
             super(msg);
         }
-        
+
         @Override
         public String toString() {
             return "EndOfStreamException: " + getMessage();
@@ -801,7 +801,7 @@ public class ClientCnxn {
             super(msg);
         }
     }
-    
+
     private static class SessionExpiredException extends IOException {
         private static final long serialVersionUID = -1388816932076193249L;
 
@@ -817,7 +817,7 @@ public class ClientCnxn {
             super(msg);
         }
     }
-    
+
     public static final int packetLen = Integer.getInteger("jute.maxbuffer",
             4096 * 1024);
 
@@ -828,7 +828,7 @@ public class ClientCnxn {
     class SendThread extends ZooKeeperThread {
         private long lastPingSentNs;
         private final ClientCnxnSocket clientCnxnSocket;
-        private Random r = new Random(System.nanoTime());        
+        private Random r = new Random(System.nanoTime());
         private boolean isFirstConnect = true;
 
         void readResponse(ByteBuffer incomingBuffer) throws IOException {
@@ -850,11 +850,11 @@ public class ClientCnxn {
                 return;
             }
             if (replyHdr.getXid() == -4) {
-                // -4 is the xid for AuthPacket               
+                // -4 is the xid for AuthPacket
                 if(replyHdr.getErr() == KeeperException.Code.AUTHFAILED.intValue()) {
-                    state = States.AUTH_FAILED;                    
-                    eventThread.queueEvent( new WatchedEvent(Watcher.Event.EventType.None, 
-                            Watcher.Event.KeeperState.AuthFailed, null) );            		            		
+                    state = States.AUTH_FAILED;
+                    eventThread.queueEvent( new WatchedEvent(Watcher.Event.EventType.None,
+                            Watcher.Event.KeeperState.AuthFailed, null) );
                 }
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Got auth sessionid:0x"
@@ -963,7 +963,7 @@ public class ClientCnxn {
         // Runnable
         /**
          * Used by ClientCnxnSocket
-         * 
+         *
          * @return
          */
         ZooKeeper.States getZkState() {
@@ -1086,14 +1086,14 @@ public class ClientCnxn {
         // throws a LoginException: see startConnect() below.
         private boolean saslLoginFailed = false;
 
-        private void startConnect() throws IOException {
+        private void startConnect() throws IOException, InterruptedException {
             if(!isFirstConnect){
-                try {
-                    Thread.sleep(r.nextInt(1000));
-                } catch (InterruptedException e) {
-                    LOG.warn("Unexpected exception", e);
-                }
+                Thread.sleep(r.nextInt(1000));
             }
+            if (!state.isAlive() || Thread.interrupted()) {
+                throw new InterruptedException();
+            }
+
             state = States.CONNECTING;
 
             InetSocketAddress addr;
@@ -1197,7 +1197,7 @@ public class ClientCnxn {
                     } else {
                         to = connectTimeout - clientCnxnSocket.getIdleRecv();
                     }
-                    
+
                     if (to <= 0) {
                         String warnInfo;
                         warnInfo = "Client session timed out, have not heard from server in "
@@ -1210,8 +1210,8 @@ public class ClientCnxn {
                     }
                     if (state.isConnected()) {
                     	//1000(1 second) is to prevent race condition missing to send the second ping
-                    	//also make sure not to send too many pings when readTimeout is small 
-                        int timeToNextPing = readTimeout / 2 - clientCnxnSocket.getIdleSend() - 
+                    	//also make sure not to send too many pings when readTimeout is small
+                        int timeToNextPing = readTimeout / 2 - clientCnxnSocket.getIdleSend() -
                         		((clientCnxnSocket.getIdleSend() > 1000) ? 1000 : 0);
                         //send a ping request either time is due or no packet sent out within MAX_SEND_PING_INTERVAL
                         if (timeToNextPing <= 0 || clientCnxnSocket.getIdleSend() > MAX_SEND_PING_INTERVAL) {
@@ -1296,7 +1296,7 @@ public class ClientCnxn {
                            + Long.toHexString(getSessionId()));
         }
 
-        private void pingRwServer() throws RWServerFoundException {
+        private void pingRwServer() throws RWServerFoundException, InterruptedException {
             String result = null;
             InetSocketAddress addr = hostProvider.next(0);
             LOG.info("Checking server " + addr + " for being r/w." +
@@ -1370,7 +1370,7 @@ public class ClientCnxn {
         /**
          * Callback invoked by the ClientCnxnSocket once a connection has been
          * established.
-         * 
+         *
          * @param _negotiatedSessionTimeout
          * @param _sessionId
          * @param _sessionPasswd
@@ -1418,8 +1418,15 @@ public class ClientCnxn {
         }
 
         void close() {
+            States previousState = state;
             state = States.CLOSED;
             clientCnxnSocket.onClosing();
+            if (previousState == States.CONNECTING) {
+                sendThread.interrupt();
+                System.out.println("Closing and interrupting send thread: " + getName());
+            } else {
+                System.out.println("Closing  without interrupt, state=[" + previousState + "] send thread: " + getName());
+            }
         }
 
         void testableCloseSocket() throws IOException {

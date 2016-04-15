@@ -40,7 +40,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     private Random r = new Random(1);
 
     @Test
-    public void testNextGoesRound() {
+    public void testNextGoesRound() throws InterruptedException {
         HostProvider hostProvider = getHostProvider((byte) 2);
         InetSocketAddress first = hostProvider.next(0);
         assertTrue(first != null);
@@ -49,7 +49,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testNextGoesRoundAndSleeps() {
+    public void testNextGoesRoundAndSleeps() throws InterruptedException {
         byte size = 2;
         HostProvider hostProvider = getHostProvider(size);
         while (size > 0) {
@@ -63,7 +63,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testNextDoesNotSleepForZero() {
+    public void testNextDoesNotSleepForZero() throws InterruptedException {
         byte size = 2;
         HostProvider hostProvider = getHostProvider(size);
         while (size > 0) {
@@ -85,7 +85,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testOneInvalidHostAddresses() {
+    public void testOneInvalidHostAddresses() throws InterruptedException {
         Collection<InetSocketAddress> addr = getServerAddresses((byte) 1);
         addr.add(new InetSocketAddress("a...", 2181));
 
@@ -97,13 +97,13 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testTwoConsequitiveCallsToNextReturnDifferentElement() {
+    public void testTwoConsequitiveCallsToNextReturnDifferentElement() throws InterruptedException {
         HostProvider hostProvider = getHostProvider((byte) 2);
         assertNotSame(hostProvider.next(0), hostProvider.next(0));
     }
 
     @Test
-    public void testOnConnectDoesNotReset() {
+    public void testOnConnectDoesNotReset() throws InterruptedException {
         HostProvider hostProvider = getHostProvider((byte) 2);
         InetSocketAddress first = hostProvider.next(0);
         hostProvider.onConnected();
@@ -125,7 +125,7 @@ public class StaticHostProviderTest extends ZKTestCase {
         boolean disconnectRequired = hostProvider.updateServerList(newList, myServer);
         assertTrue(!disconnectRequired);
         hostProvider.onConnected();
-        
+
         // Number of machines stayed the same, my server is in the new cluster
         disconnectRequired = hostProvider.updateServerList(newList, myServer);
         assertTrue(!disconnectRequired);
@@ -170,12 +170,12 @@ public class StaticHostProviderTest extends ZKTestCase {
         }
         hostProvider.onConnected();
 
-       // should be numClients/10 in expectation, we test that its numClients/10 +- slackPercent 
+       // should be numClients/10 in expectation, we test that its numClients/10 +- slackPercent
         assertTrue(numDisconnects < upperboundCPS(numClients, 10));
     }
 
     @Test
-    public void testUpdateMigrationGoesRound() throws UnknownHostException {
+    public void testUpdateMigrationGoesRound() throws UnknownHostException, InterruptedException {
         HostProvider hostProvider = getHostProvider((byte) 4);
         // old list (just the ports): 1238, 1237, 1236, 1235
         Collection<InetSocketAddress> newList = new ArrayList<InetSocketAddress>(
@@ -238,7 +238,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testUpdateLoadBalancing() throws UnknownHostException {
+    public void testUpdateLoadBalancing() throws UnknownHostException, InterruptedException {
         // Start with 9 servers and 10000 clients
         boolean disconnectRequired;
         HostProvider[] hostProviderArray = new HostProvider[numClients];
@@ -334,7 +334,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testNoCurrentHostDuringNormalMode() throws UnknownHostException {
+    public void testNoCurrentHostDuringNormalMode() throws UnknownHostException, InterruptedException {
         // Start with 9 servers and 10000 clients
         boolean disconnectRequired;
         StaticHostProvider[] hostProviderArray = new StaticHostProvider[numClients];
@@ -403,7 +403,7 @@ public class StaticHostProviderTest extends ZKTestCase {
     }
 
     @Test
-    public void testReconfigDuringReconfigMode() throws UnknownHostException {
+    public void testReconfigDuringReconfigMode() throws UnknownHostException, InterruptedException {
         // Start with 9 servers and 10000 clients
         boolean disconnectRequired;
         StaticHostProvider[] hostProviderArray = new StaticHostProvider[numClients];
